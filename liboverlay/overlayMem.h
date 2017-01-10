@@ -39,12 +39,6 @@
 #include "gralloc_priv.h"
 #include "overlayUtils.h"
 
-#ifdef NO_IOMMU
-#define HEAP_ID GRALLOC_USAGE_PRIVATE_MM_HEAP
-#else
-#define HEAP_ID GRALLOC_USAGE_PRIVATE_IOMMU_HEAP
-#endif
-
 namespace overlay {
 
 /*
@@ -123,7 +117,7 @@ inline bool OvMem::open(uint32_t numbufs,
         uint32_t bufSz, bool isSecure)
 {
     alloc_data data;
-    int allocFlags = HEAP_ID;
+    int allocFlags = GRALLOC_USAGE_PRIVATE_IOMMU_HEAP;
     if(isSecure) {
         allocFlags = GRALLOC_USAGE_PRIVATE_MM_HEAP;
         allocFlags |= GRALLOC_USAGE_PROTECTED;
@@ -144,26 +138,11 @@ inline bool OvMem::open(uint32_t numbufs,
     data.uncached = true;
 
     err = mAlloc->allocate(data, allocFlags);
-#ifdef SECURE_MM_HEAP
     if (err != 0) {
         ALOGE("OvMem: Error allocating memory");
         return false;
     }
-#else
-    //see if we can fallback to other heap
-    //we can try MM_HEAP once if it's not secure playback
-    if (err != 0 && !isSecure) {
-        allocFlags |= GRALLOC_USAGE_PRIVATE_MM_HEAP;
-        err = mAlloc->allocate(data, allocFlags);
-        if (err != 0) {
-            ALOGE(" could not allocate from fallback heap");
-            return false;
-        }
-    } else if (err != 0) {
-        ALOGE("OvMem: error allocating memory can not fall back");
-        return false;
-    }
-#endif
+
     mFd = data.fd;
     mBaseAddr = data.base;
     mAllocType = data.allocType;
